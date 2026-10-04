@@ -1,21 +1,24 @@
 ```mermaid
 erDiagram
-    USERS ||--o{ TOURNAMENTS : "organizes"
+    USERS ||--o{ TOURNAMENTS : organizes
     USERS ||--o{ TOURNAMENT_CURATORS : "is curator"
-    TOURNAMENTS ||--o{ TOURNAMENT_CURATORS : "has curators"
-    TOURNAMENTS ||--o{ TEAMS : "registers"
-    TOURNAMENTS ||--o{ GROUPS : "has"
-    TOURNAMENTS ||--o{ BRACKETS : "has (gold, silver)"
-    TOURNAMENTS ||--o{ GAMES : "has"
-    GROUPS ||--o{ TEAMS : "contains"
-    GROUPS ||--o{ GAMES : "group games"
-    BRACKETS ||--o{ GAMES : "knockout games"
-    TEAMS ||--o{ GAMES : "team A / team B"
-    TEAMS ||--o{ GAMES : "referees"
-    TEAMS ||--o{ GAMES : "wins"
-    GAMES ||--o| GAMES : "winner advances to (next_game)"
-    GAMES ||--o{ GAME_SETS : "has 1-3 sets"
+    TOURNAMENTS ||--o{ TOURNAMENT_CURATORS : has
+    TOURNAMENTS ||--o{ TEAMS : has
+    TOURNAMENTS ||--o{ GROUPS : has
+    TOURNAMENTS ||--o{ KNOCKOUTS : has
+
+    GROUPS ||--o{ TEAMS : contains
+    GROUPS ||--o{ GROUP_GAMES : schedules
+    KNOCKOUTS ||--o{ KNOCKOUT_GAMES : places
+    KNOCKOUTS ||--o{ KNOCKOUT_TEAMS : "entered by"
+    TEAMS ||--o{ KNOCKOUT_TEAMS : enters
+    GROUPS ||--o{ KNOCKOUT_TEAMS : "came from"
+
+    GAMES ||--o| GROUP_GAMES : "sits in a group"
+    GAMES ||--o| KNOCKOUT_GAMES : "sits in a knockout"
+    TEAMS ||--o{ GAMES : "plays / referees"
     USERS ||--o{ GAMES : "entered score"
+    GAMES ||--o{ SETS : has
 
     USERS {
         bigint id PK
@@ -24,7 +27,7 @@ erDiagram
     }
     TOURNAMENTS {
         bigint id PK
-        bigint user_id FK "organizer"
+        bigint user_id FK
         string name
         string slug UK
         string location
@@ -32,61 +35,65 @@ erDiagram
         date ends_on
         text description
         enum category "men | women | mixed"
-        enum status "draft | registration | group_phase | knockout_phase | finished"
-        enum format "classic"
-        smallint group_size
-        smallint gold_per_group "N"
-        smallint silver_per_group "M (0 = no silver)"
-        enum match_format "one_set_21 | best_of_3"
-        enum final_format "one_set_21 | best_of_3"
+        enum type "league | knockout | classic"
+        enum status
+        json settings
     }
     TOURNAMENT_CURATORS {
-        bigint tournament_id PK,FK
-        bigint user_id PK,FK
+        bigint tournament_id PK, FK
+        bigint user_id PK, FK
     }
     TEAMS {
         bigint id PK
         bigint tournament_id FK
-        bigint group_id FK "null until draw"
-        string name "optional"
+        bigint group_id FK "null if no groups"
+        string name
         string player_one
         string player_two
-        smallint seed "optional, unique per tournament"
+        smallint seed "optional, 1 = strongest"
         datetime withdrawn_at
     }
     GROUPS {
         bigint id PK
         bigint tournament_id FK
-        string name "A, B, C..."
-        smallint position
+        string name "A, B, C"
     }
-    BRACKETS {
+    KNOCKOUTS {
         bigint id PK
         bigint tournament_id FK
-        enum tier "gold | silver"
-        smallint size "2..64"
+        smallint position "1, 2"
+        smallint size "2 to 64"
+    }
+    KNOCKOUT_TEAMS {
+        bigint knockout_id PK, FK
+        bigint team_id PK, FK
+        bigint group_id FK "classic only"
+        smallint group_position "classic only"
     }
     GAMES {
         bigint id PK
-        bigint tournament_id FK
-        bigint group_id FK "group games"
-        bigint bracket_id FK "knockout games"
-        smallint round "group: order on court / bracket: round"
-        smallint position "slot in bracket round"
         bigint team_a_id FK
         bigint team_b_id FK
         bigint referee_team_id FK
-        bigint winner_id FK
-        bigint next_game_id FK "bracket progression"
-        enum next_slot "a | b"
-        enum status "pending | scheduled | in_progress | finished | forfeit | bye"
+        enum status
         bigint scored_by_user_id FK
         datetime scored_at
     }
-    GAME_SETS {
+    GROUP_GAMES {
+        bigint game_id PK, FK
+        bigint group_id FK
+        smallint order "play order on the court"
+    }
+    KNOCKOUT_GAMES {
+        bigint game_id PK, FK
+        bigint knockout_id FK
+        smallint round "1 = first round ... last = final"
+        smallint number "QF3, SF1"
+    }
+    SETS {
         bigint id PK
         bigint game_id FK
-        tinyint number "1..3"
+        tinyint number
         smallint points_a
         smallint points_b
     }
